@@ -21,82 +21,80 @@ along with PPM Reader.  If not, see <http://www.gnu.org/licenses/>.
 #include "PPMReader_ESP32.h"
 
 //static PPMReader *PPMReader::ppm;
-PPMReader *PPMReader::ppm;
+//PPMReader *PPMReader::ppm;
+struct PPMReader ppm;
 
-static void IRAM_ATTR PPMReader::PPM_ISR(void) {
-  ppm->handleInterrupt(); 
+void IRAM_ATTR PPM_ISR(void) {
+  PPMReaderHandleInterrupt();
 }
 
 
-PPMReader::PPMReader(byte interruptPin, byte channelAmount):
-    interruptPin(interruptPin), channelAmount(channelAmount) {
+void PPMReaderInit(byte interruptPin, byte channelAmount){
+    ppm.interruptPin = interruptPin;
+    ppm.channelAmount = channelAmount;
     // Setup an array for storing channel values
-    rawValues = new unsigned [channelAmount];
-    validValues = new unsigned [channelAmount];
+    ppm.rawValues = new unsigned [channelAmount];
+    ppm.validValues = new unsigned [channelAmount];
     for (int i = 0; i < channelAmount; ++i) {
-        rawValues[i] = 0;
-        validValues[i] = 0;
+        ppm.rawValues[i] = 0;
+        ppm.validValues[i] = 0;
     }
     // Attach an interrupt to the pin
     pinMode(interruptPin, INPUT);
-    if(ppm == NULL) {
-        ppm = this;
-        //attachInterrupt(digitalPinToInterrupt(interruptPin), PPM_ISR, RISING);
-        attachInterrupt(interruptPin, PPM_ISR, RISING);
-    }
+    //attachInterrupt(digitalPinToInterrupt(interruptPin), PPM_ISR, RISING);
+    attachInterrupt(interruptPin, PPM_ISR, RISING);
 }
 
-PPMReader::~PPMReader(void) {
+void PPMReaderDelete(void) {
     //detachInterrupt(digitalPinToInterrupt(interruptPin));
-    detachInterrupt(interruptPin);
-    if(ppm == this) ppm = NULL;
-    delete [] rawValues;
-    delete [] validValues;
+    detachInterrupt(ppm.interruptPin);
+    delete [] ppm.rawValues;
+    delete [] ppm.validValues;
 }
 
-void PPMReader::handleInterrupt(void) {
+void PPMReaderHandleInterrupt(void) {
     // Remember the current micros() and calculate the time since the last pulseReceived()
-    unsigned long previousMicros = microsAtLastPulse;
-    microsAtLastPulse = micros();
-    unsigned long time = microsAtLastPulse - previousMicros;
+    unsigned long previousMicros = ppm.microsAtLastPulse;
+    ppm.microsAtLastPulse = micros();
+    unsigned long time = ppm.microsAtLastPulse - previousMicros;
 
-    if (time > blankTime) {
+    if (time > ppm.blankTime) {
         /* If the time between pulses was long enough to be considered an end
          * of a signal frame, prepare to read channel values from the next pulses */
-        pulseCounter = 0;
+        ppm.pulseCounter = 0;
     }
     else {
         // Store times between pulses as channel values
-        if (pulseCounter < channelAmount) {
-            rawValues[pulseCounter] = time;
-            if (time >= minChannelValue - channelValueMaxError && time <= maxChannelValue + channelValueMaxError) {
-                validValues[pulseCounter] = constrain(time, minChannelValue, maxChannelValue);
+        if (ppm.pulseCounter < ppm.channelAmount) {
+            ppm.rawValues[ppm.pulseCounter] = time;
+            if (time >= ppm.minChannelValue - ppm.channelValueMaxError && time <= ppm.maxChannelValue + ppm.channelValueMaxError) {
+                ppm.validValues[ppm.pulseCounter] = constrain(time, ppm.minChannelValue, ppm.maxChannelValue);
             }
         }
-        ++pulseCounter;
+        ++ppm.pulseCounter;
     }
 }
 
-unsigned PPMReader::rawChannelValue(byte channel) {
+unsigned PPMReaderRawChannelValue(byte channel) {
     // Check for channel's validity and return the latest raw channel value or 0
     unsigned value = 0;
-    if (channel >= 1 && channel <= channelAmount) {
+    if (channel >= 1 && channel <= ppm.channelAmount) {
         noInterrupts();
-        value = rawValues[channel-1];
+        value = ppm.rawValues[channel-1];
         interrupts();
     }
     return value;
 }
 
-unsigned PPMReader::latestValidChannelValue(byte channel, unsigned defaultValue) {
+unsigned PPMReaderLatestValidChannelValue(byte channel, unsigned defaultValue) {
     // Check for channel's validity and return the latest valid channel value or defaultValue.
     unsigned value;
-    if(micros() - microsAtLastPulse > failsafeTimeout) return defaultValue;
-    if (channel >= 1 && channel <= channelAmount) {
+    if(micros() - ppm.microsAtLastPulse > ppm.failsafeTimeout) return defaultValue;
+    if (channel >= 1 && channel <= ppm.channelAmount) {
         noInterrupts();
-        value = validValues[channel-1];
+        value = ppm.validValues[channel-1];
         interrupts();
-        if(value < minChannelValue) return defaultValue; // value cannot exceed maxChannelValue by design
+        if(value < ppm.minChannelValue) return defaultValue; // value cannot exceed maxChannelValue by design
     }
     return value;
 }

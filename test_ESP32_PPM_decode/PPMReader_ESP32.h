@@ -23,10 +23,10 @@ along with PPM Reader.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <Arduino.h>
 
-class PPMReader {
+struct PPMReader{
 
-    public:
-    
+    //public:
+
     // The range of a channel's possible values
     unsigned minChannelValue = 1000;
     unsigned maxChannelValue = 2000;
@@ -42,7 +42,7 @@ class PPMReader {
 	unsigned long failsafeTimeout = 500000L;
 
 
-    private:
+    //private:
 
     // The pin from which to listen for interrupts
     byte interruptPin = 0;
@@ -61,29 +61,38 @@ class PPMReader {
     volatile unsigned long microsAtLastPulse = 0;
 
     // Pointer to PPMReader object used by ISR. Replace by an array if multiple PPM reader instances are needed
-    static PPMReader *ppm;
+    //static PPMReader *ppm;
 
-    public:
+    //public:
 
-    PPMReader(byte interruptPin, byte channelAmount);
-    ~PPMReader(void);
+    //PPMReader(byte interruptPin, byte channelAmount);
+    //~PPMReader(void);
 
     /* Returns the latest raw (not necessarily valid) value for the
      * channel (starting from 1). */
-    unsigned rawChannelValue(byte channel);
+    //unsigned rawChannelValue(byte channel);
 
     /* Returns the latest received value that was considered valid for the channel (starting from 1).
      * Returns defaultValue if the given channel hasn't received any valid values yet. */
-    unsigned latestValidChannelValue(byte channel, unsigned defaultValue);
+    //unsigned latestValidChannelValue(byte channel, unsigned defaultValue);
 
-    private:
+    //private:
 
     // An interrupt service routine for handling the interrupts activated by PPM pulses
-    void handleInterrupt(void);
+    //void handleInterrupt(void);
 
     // Interrupt service routine function compatible with attachInterrupt. Add more funcitons if multiple PPM reader instances are needed
-    static void IRAM_ATTR PPM_ISR(void);
+    //void IRAM_ATTR PPM_ISR(void);
 
 };
+
+
+void IRAM_ATTR PPM_ISR(void);
+void PPMReaderInit(byte interruptPin, byte channelAmount);
+void PPMReaderDelete(void);
+void PPMReaderHandleInterrupt(void);
+unsigned PPMReaderRawChannelValue(byte channel);
+unsigned PPMReaderLatestValidChannelValue(byte channel, unsigned defaultValue);
+
 
 #endif
